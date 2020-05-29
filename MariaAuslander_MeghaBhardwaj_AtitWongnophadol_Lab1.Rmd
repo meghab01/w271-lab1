@@ -1,0 +1,267 @@
+---
+title: "W271 Group Lab 1"
+author: "Maria Auslander, Megha Bhardwaj, Atit Wongnophadol"
+subtitle: 'Due 4:00pm Pacific Time Monday June 1 2020'
+output: 
+  pdf_document:
+  toc: true
+  number_sections: true
+fontsize: 11pt
+geometry: margin=1in
+---
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 100)
+knitr::opts_chunk$set(fig.width=8, fig.height=5)
+```
+
+**Part 1 (25 points)**
+
+Conduct a thorough EDA of the data set. This should include both graphical and tabular analysis as taught in this course. Output-dump (that is, graphs and tables that don't come with explanations) will result in a very low, if not zero, score. Since the report has a page-limit, you will have to be selective when choosing visuals to illustrate your key points, associated with a concise explanation of the visuals. This EDA should begin with an inspection of the given dataset; examination of anomalies, missing values, potential of top and/or bottom code etc.   
+
+```{r}
+# data inspection
+
+challenger<-read.csv("challenger.csv")
+# head(challenger)
+# tail(challenger)
+str(challenger)
+summary(challenger)
+```
+
+In the Challenger dataset, there are 23 observations with 5 columns. The column $Flight$ appears to be just for the index of an observation, so it shouldn't have any meaningful information for our study. $Temp$ and $Pressure$ seem to be in a reasonable range and do not contain any missing value. $O.ring$ also contains a reasonable range of integers from 0 and not greater than 6 (the total number of O rings in each flight, which is basically the variable $Number$). In short, by looking at these individual variables separately, they all seem reasonable, do not contain any missing value nor any anomaly. The variables that contain the needed information in this study are $Temp$, $Pressure$ as potential explanatory variables, and $O.ring$ as a dependent variable of a model.
+
+Next, pairwise relationships among $Temp$, $Pressure$ and $O.ring$ are plotted to identify any meaningful pattern and anomaly.
+
+
+```{r, fig.height = 2.5}
+# pairwise relationships between variables of interest
+# $Temp$, $Pressure$ and $O.ring$
+
+library(dplyr)
+library(ggplot2)
+
+# Distribution of temperature (Temp) by O.ring incidences (O.ring)
+# Were those who attended colleage tend to be younger?
+ggplot(challenger, aes(factor(O.ring), Temp)) +
+geom_boxplot(aes(fill = factor(O.ring))) + 
+geom_jitter() +
+ggtitle("Temperature and number of incidences on O.ring") + 
+theme(plot.title = element_text(lineheight=1, face="bold")) 
+
+# Distribution of pressure (Pressure) by O.ring incidences (O.ring)
+ggplot(challenger, aes(factor(O.ring), Pressure)) +
+geom_boxplot(aes(fill = factor(O.ring))) + 
+geom_jitter() +
+ggtitle("Pressure and number of incidences on O.ring") + 
+theme(plot.title = element_text(lineheight=1, face="bold")) 
+
+# Relationship between Temp and Pressure
+plot(challenger$Temp, challenger$Pressure, 
+     main="Temp vs Pressure",
+     xlab="Temp", ylab="Pressure", pch=19)
+
+# abline(lm(challenger$Pressure ~ challenger$Temp), col="red")
+
+
+# 3d scatter plot for the relatinoship between all 3 variables
+library("scatterplot3d")
+
+scatterplot3d(challenger$Temp, challenger$Pressure, challenger$O.ring, pch = 19, type="h",
+              xlab = "Temperature", ylab = "Pressure", zlab = "O.ring incidence")
+
+
+```
+
+From the graphs above, there is an obvious relationship between temperature and O.ring incidence, whereas temperature lower than 60 some degree tends to associate with at least one O.ring incidence. 
+In terms of pressure, O.ring seems to be able to withstand a wide range of pressure, as can be observed by the density around both end of the pressure spectrum from low of 50 to high of 200. However, there is slight concerning evidence that 6 flights with at least one occurred O.ring incidence were observed with the high pressure level; there were two exception flights in which O.ring incidence occurred with the pressure below 50. So the relationship between pressure and O.ring incidence might actually exist, but given the scant data it cannot be ascertained.
+
+The next scatter plot between temperature and pressure don't give much information. There is no apparent relationship that can be drawn from the data.
+
+The last 3d plot attempts to draw a relationship between an interaction between temperature and pressure and the resulting O.ring incidence. There is no apparent evidence that an interaction effect between temperature and pressure on O.ring incidence exists.
+
+In summary, there is an obvious relationship between temperature and O.ring incidence that justifies further exploration and model formulation. A light evidence exists for a relationship between pressure and O.ring incidence; a hypothesis on pressure factor may be formed and tested to verify if it plays a significant role in explaining O.ring incidence.
+
+<!-- EDA below from Maria -->
+
+The following matrix shows each column name as well as the number of missing values, the minimum column value, the median column value, and the maximum column value (respectively). Following the matrix, each histogram of values for columns were shown.
+
+
+```{r, fig.height = 3}
+par(mfrow = c(2,ncol(challenger)%/%2))
+
+columns<-names(challenger)
+
+challenger.eda.matrix <- matrix(data=NA,nrow=length(challenger),ncol=5)
+
+counter=1
+for (col in columns) {
+    show(hist(challenger[[col]],main=col,xlab=col))
+    num_missing<-sum(is.na(challenger[[col]]))#/length(challenger$col)
+    maxn<-max(challenger[[col]])
+    medn<-median(challenger[[col]])
+    minn<-min(challenger[[col]])
+    challenger.eda.matrix[counter,] = c(col,num_missing,minn,medn,maxn)
+    counter = counter+1
+}
+# challenger.eda.matrix
+# summary(challenger)
+```
+Looking at the histograms and sumary statistics, the low pressure data points may be anomalies and a cause for concern. The large O.ring values additionally seem to an anomalie and potentially a cause for concern. Number seems to maintain a value of 6 throughout the dataset.
+
+
+**Part 2 (20 points)** 
+
+Answer the following from Question 4 of Bilder and Loughin Section 2.4 Exercises (page 129):
+
+The response variable is O.ring, and the explanatory variables are Temp and  Pressure. Complete the following: 
+
+(a) The authors use logistic regression to estimate the probability an O-ring will fail. In order to use this model, the authors needed to assume that each O-ring is independent for each launch. Discuss why this assumption is necessary and the potential problems with it. Note that a subsequent analysis helped to alleviate the authors’ concerns about independence.
+
+
+Logistic regression assumes a binomial distribution, in the case of binomial distribution, independence of trials is a necessary assumption. The issue is that the O-rings are on every rocket (6/rocket), so there may be some dependencies on each other given they are located on the same entity.
+
+
+(b) Estimate the logistic regression model using the explanatory variables in a linear form.
+
+```{r}
+challenger$percent.O.ring.fail<- with(challenger, O.ring/Number)
+challenger_glm<-glm(percent.O.ring.fail~Temp+Pressure,
+                  family=binomial(link="logit")
+                  ,data=challenger)
+summary(challenger_glm)
+```
+$$ logit(\hat\pi)=\beta_0+\beta_1 x_1 + \beta_2 x_2 $$
+$$logit(\hat\pi)=2.520195-0.098297 x_1 + 0.008484 x_2 $$
+Where $x_1=Temp$ and $x_2=Pressure$
+
+
+(c) Perform LRTs to judge the importance of the explanatory variables in the model. 
+
+(??? - Not sure if these are right, p values appear to be too high when compared to the model)
+
+```{r}
+temp_only<-glm(percent.O.ring.fail~Temp,
+                  family=binomial(link="logit"),
+                  data=challenger)
+pressure_only<-glm(percent.O.ring.fail~Pressure,
+                  family=binomial(link="logit"),
+                  data=challenger)
+lrtest(challenger_glm,temp_only)
+lrtest(challenger_glm,pressure_only)
+```
+
+
+(d) The authors chose to remove Pressure from the model based on the LRTs. Based on your results, discuss why you think this was done. Are there any potential problems with removing this variable?
+
+
+`Pressure` was likely taken from the model because the according p-value was large (p>alpha=0.05) while the p-value for `Temp` was small (p<alpha=0.05). There is not enough evidence to assume that `Pressure` is important in the explanatory model, however, removing `Pressure` from the model may be an issue if `Pressure` could be the part of an interaction term or a transformation in a future model.
+
+
+**Part 3 (35 points)**
+
+Answer the following from Question 5 of Bilder and Loughin Section 2.4 Exercises (page 129-130):
+
+Continuing Exercise 4, consider the simplified model $logit(\pi) = \beta_0 +  \beta_1 Temp$, where $\pi$ is the probability of an O-ring failure. Complete the following:
+
+(a) Estimate the model.
+
+```{r}
+challenger_glm_2<-glm(percent.O.ring.fail~Temp,
+                  family=binomial(link="logit"),
+                  data=challenger)
+summary(challenger_glm_2)
+```
+$$ logit(\hat\pi)=\beta_0+\beta_1 x_1$$
+$$ logit(\hat\pi)=5.0850-0.1156 x_1$$
+
+Where $x_1=Temp$
+
+
+(b) Construct two plots: (1) $\pi$ vs. Temp and (2) Expected number of failures vs. Temp. Use a temperature range of 31° to 81° on the x-axis even though the minimum temperature in the data set was 53°.
+
+```{r}
+temp <-31:81
+pi_val <- predict(challenger_glm_2, list(Temp = temp),type="response")
+plot(x=temp, y=pi_val,type="l",ylab=expression(pi),main="Pi vs. Temp")
+
+plot(x=temp, y=pi_val*6,type="l",ylab=expression(pi),main="Expected Number of Failures vs. Temp")
+
+```
+
+
+(c) Include the 95% Wald confidence interval bands for $\pi$ on the plot. Why are the bands much wider for lower temperatures than for higher temperatures?
+
+(???- CI lines seem off, particularly around extremes)
+```{r}
+temp <-31:81
+pi_val <- predict(challenger_glm_2, list(Temp = temp),type="response")
+plot(x=temp, y=pi_val,type="l",ylab=expression(pi),main="Pi vs. Temp",ylim=c(0,1))
+
+inverse_logit = function(x){
+  exp(x)/(1+exp(x))
+}
+
+predicted = predict(challenger_glm_2, list(Temp = temp), se.fit=TRUE)
+
+pred0 <- predicted$fit
+pred <- inverse_logit(predicted$fit)
+alpha <- 0.95
+sc <- abs(qnorm((1-alpha)/2))  ## Normal approx. to likelihood
+lwr=inverse_logit(pred0-sc*predicted$se.fit)
+upr=inverse_logit(pred0+sc*predicted$se.fit)
+
+lines(temp, upr, col="blue")
+lines(temp, lwr, col="blue")
+
+plot(x=temp, y=pi_val*6,type="l",ylab=expression(pi),main="Expected Number of Failures vs. Temp",ylim=c(0,6))
+lines(temp, upr*6, col="blue")
+lines(temp, lwr*6, col="blue")
+
+```
+
+There are fewer estimations for the lower temperatures in the dataset, so there is higher uncertainty at lower temperatures.
+
+
+(d) The temperature was 31° at launch for the Challenger in 1986. Estimate the probability of an O-ring failure using this temperature, and compute a corresponding confidence interval. Discuss what assumptions need to be made in order to apply the inference procedures.
+
+(??? - values seem to extreme)
+```{r}
+single_pred<-predict(challenger_glm_2, list(Temp = c(31)),type="link",se.fit=TRUE)
+
+pred0 <- single_pred$fit
+pred <- inverse_logit(single_pred$fit)
+alpha <- 0.90
+sc <- abs(qnorm((1-alpha)/2))  ## Normal approx. to likelihood
+lwr=inverse_logit(pred0-(sc*single_pred$se.fit))
+upr=inverse_logit(pred0+(sc*single_pred$se.fit))
+
+lwr
+pred
+upr
+```
+
+We need to assume the same trend that occurs at the temperature range available in the dataset (53,81) also occurs at the lower temperature, that the model is still applicable.
+
+
+(e) Rather than using Wald or profile LR intervals for the probability of failure, Dalal et al. (1989) use a parametric bootstrap to compute intervals. Their process was to (1) simulate a large number of data sets (n = 23 for each) from the estimated model of  Temp; (2) estimate new models for each data set, say and (3) compute  at a specific temperature of interest. The authors used the 0.05 and 0.95 observed quantiles from the  simulated distribution as their 90% confidence interval limits. Using the parametric bootstrap, compute 90% confidence intervals separately at temperatures of 31° and 72°.27
+
+(f) Determine if a quadratic term is needed in the model for the temperature.
+
+Look at LRT for parameter of quadratic term--> look at p-value, if small, there will be evidence of quadratic relationship.
+
+**Part 4 (10 points)**
+
+With the same set of explanatory variables in your final model, estimate a linear regression model. Explain the model results; conduct model diagnostic; and assess the validity of the model assumptions.  Would you use the linear regression model or binary logistic regression in this case?  Explain why.
+
+```{r}
+linear_model_pressure<-lm(percent.O.ring.fail~Temp+Pressure,data=challenger)
+summary(linear_model_pressure)
+
+linear_model_temp_only<-lm(percent.O.ring.fail~Temp,data=challenger)
+summary(linear_model_temp_only)
+```
+
+**Part 5 (10 points)**
+
+Interpret the main result of your final model in terms of both odds and probability of failure. Summarize the final result with respect to the question(s) being asked and key takeaways from the analysis.
