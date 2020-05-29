@@ -1,0 +1,240 @@
+---
+title: "W271 Group Lab 1"
+subtitle: 'Due 4:00pm Pacific Time Monday June 1 2020'
+output: 
+  pdf_document:
+  toc: true
+  number_sections: true
+fontsize: 11pt
+geometry: margin=1in
+---
+
+## Instructions (Please Read Carefully):
+
+* 20 page limit (strict)
+
+* Do not modify fontsize, margin or line_spacing settings
+
+* One student from eah group should submit the lab to their student github repo by the deadline; submission and revisions made after the deadline will not be graded
+
+* Answers should clearly explain your reasoning; do not simply 'output dump' the results of code without explanation 
+
+* Submit two files:
+    
+    1. A pdf file that details your answers. Include all R code used to produce the answers. Do not suppress the codes in your pdf file
+    
+    2. The R markdown (Rmd) file used to produce the pdf file
+  
+    The assignment will not be graded unless **both** files are submitted
+      
+* Name your files to include all group members names. For example the students' names are Stan Cartman and Kenny Kyle, name your files as follows:
+
+    * `StanCartman_KennyKyle_Lab1.Rmd`
+    * `StanCartman_KennyKyle_Lab1.pdf`
+            
+* Although it sounds obvious, please write your name on page 1 of your pdf and Rmd files
+
+* All answers should include a detailed narrative; make sure that your audience can easily follow the logic of your analysis. All steps used in modelling must be clearly shown and explained
+
+* For statistical methods that we cover in this course, use the R libraries and functions that are covered in this course. If you use libraries and functions for statistical modeling that we have not covered, you must provide an explanation of why such libraries and functions are used and reference the library documentation. For data wrangling and data visualization, you are free to use other libraries, such as dplyr, ggplot2, etc
+
+* For mathematical formulae, type them in your R markdown file. Do not e.g. write them on a piece of paper, snap a photo, and use the image file
+
+* Incorrectly following submission instructions results in deduction of grades
+
+* Students are expected to act with regard to UC Berkeley Academic Integrity.
+
+\newpage
+
+# Investigation of the 1989 Space Shuttle Challenger Accident 
+
+Carefullly read the Dalal et al (1989) paper (Skip Section 5).
+
+**Part 1 (25 points)**
+
+Conduct a thorough EDA of the data set. This should include both graphical and tabular analysis as taught in this course. Output-dump (that is, graphs and tables that don't come with explanations) will result in a very low, if not zero, score. Since the report has a page-limit, you will have to be selective when choosing visuals to illustrate your key points, associated with a concise explanation of the visuals. This EDA should begin with an inspection of the given dataset; examination of anomalies, missing values, potential of top and/or bottom code etc.   
+
+```{r}
+challenger<-read.csv("challenger.csv")
+head(challenger)
+```
+
+
+The following matrix shows each column name as well as the number of missing values, the minimum column value, the median column value, and the maximum column value (respectively). Following the matrix, each histogram of values for columns were shown.
+
+```{r}
+columns<-names(challenger)
+
+challenger.eda.matrix = matrix(data=NA,nrow=length(challenger),ncol=5)
+
+counter=1
+for (col in columns) {
+    show(hist(challenger[[col]],main=col,xlab=col))
+    num_missing<-sum(is.na(challenger[[col]]))#/length(challenger$col)
+    maxn<-max(challenger[[col]])
+    medn<-median(challenger[[col]])
+    minn<-min(challenger[[col]])
+    challenger.eda.matrix[counter,] = c(col,num_missing,minn,medn,maxn)
+    counter = counter+1
+}
+challenger.eda.matrix
+summary(challenger)
+```
+Looking at the histograms and sumary statistics, the low pressure data points may be anomalies and a cause for concern. The large O.ring values additionally seem to an anomalie and potentially a cause for concern. Number seems to maintain a value of 6 throughout the dataset.
+
+
+**Part 2 (20 points)** 
+
+Answer the following from Question 4 of Bilder and Loughin Section 2.4 Exercises (page 129):
+
+The response variable is O.ring, and the explanatory variables are Temp and  Pressure. Complete the following: 
+
+(a) The authors use logistic regression to estimate the probability an O-ring will fail. In order to use this model, the authors needed to assume that each O-ring is independent for each launch. Discuss why this assumption is necessary and the potential problems with it. Note that a subsequent analysis helped to alleviate the authors’ concerns about independence.
+
+
+Logistic regression assumes a binomial distribution, in the case of binomial distribution, independence of trials is a necessary assumption. The issue is that the O-rings are on every rocket (6/rocket), so there may be some dependencies on each other given they are located on the same entity.
+
+
+(b) Estimate the logistic regression model using the explanatory variables in a linear form.
+
+```{r}
+challenger$percent.O.ring.fail<- with(challenger, O.ring/Number)
+challenger_glm<-glm(percent.O.ring.fail~Temp+Pressure,
+                  family=binomial(link="logit")
+                  ,data=challenger)
+summary(challenger_glm)
+```
+$$ logit(\hat\pi)=\beta_0+\beta_1 x_1 + \beta_2 x_2 $$
+$$logit(\hat\pi)=2.520195-0.098297 x_1 + 0.008484 x_2 $$
+Where $x_1=Temp$ and $x_2=Pressure$
+
+
+(c) Perform LRTs to judge the importance of the explanatory variables in the model. 
+
+(??? - Not sure if these are right, p values appear to be too high when compared to the model)
+
+```{r}
+temp_only<-glm(percent.O.ring.fail~Temp,
+                  family=binomial(link="logit"),
+                  data=challenger)
+pressure_only<-glm(percent.O.ring.fail~Pressure,
+                  family=binomial(link="logit"),
+                  data=challenger)
+lrtest(challenger_glm,temp_only)
+lrtest(challenger_glm,pressure_only)
+```
+
+
+(d) The authors chose to remove Pressure from the model based on the LRTs. Based on your results, discuss why you think this was done. Are there any potential problems with removing this variable?
+
+
+`Pressure` was likely taken from the model because the according p-value was large (p>alpha=0.05) while the p-value for `Temp` was small (p<alpha=0.05). There is not enough evidence to assume that `Pressure` is important in the explanatory model, however, removing `Pressure` from the model may be an issue if `Pressure` could be the part of an interaction term or a transformation in a future model.
+
+
+**Part 3 (35 points)**
+
+Answer the following from Question 5 of Bilder and Loughin Section 2.4 Exercises (page 129-130):
+
+Continuing Exercise 4, consider the simplified model $logit(\pi) = \beta_0 +  \beta_1 Temp$, where $\pi$ is the probability of an O-ring failure. Complete the following:
+
+(a) Estimate the model.
+
+```{r}
+challenger_glm_2<-glm(percent.O.ring.fail~Temp,
+                  family=binomial(link="logit"),
+                  data=challenger)
+summary(challenger_glm_2)
+```
+$$ logit(\hat\pi)=\beta_0+\beta_1 x_1$$
+$$ logit(\hat\pi)=5.0850-0.1156 x_1$$
+
+Where $x_1=Temp$
+
+
+(b) Construct two plots: (1) $\pi$ vs. Temp and (2) Expected number of failures vs. Temp. Use a temperature range of 31° to 81° on the x-axis even though the minimum temperature in the data set was 53°.
+
+```{r}
+temp <-31:81
+pi_val <- predict(challenger_glm_2, list(Temp = temp),type="response")
+plot(x=temp, y=pi_val,type="l",ylab=expression(pi),main="Pi vs. Temp")
+
+plot(x=temp, y=pi_val*6,type="l",ylab=expression(pi),main="Expected Number of Failures vs. Temp")
+
+```
+
+
+(c) Include the 95% Wald confidence interval bands for $\pi$ on the plot. Why are the bands much wider for lower temperatures than for higher temperatures?
+
+(???- CI lines seem off, particularly around extremes)
+```{r}
+temp <-31:81
+pi_val <- predict(challenger_glm_2, list(Temp = temp),type="response")
+plot(x=temp, y=pi_val,type="l",ylab=expression(pi),main="Pi vs. Temp",ylim=c(0,1))
+
+inverse_logit = function(x){
+  exp(x)/(1+exp(x))
+}
+
+predicted = predict(challenger_glm_2, list(Temp = temp), se.fit=TRUE)
+
+pred0 <- predicted$fit
+pred <- inverse_logit(predicted$fit)
+alpha <- 0.95
+sc <- abs(qnorm((1-alpha)/2))  ## Normal approx. to likelihood
+lwr=inverse_logit(pred0-sc*predicted$se.fit)
+upr=inverse_logit(pred0+sc*predicted$se.fit)
+
+lines(temp, upr, col="blue")
+lines(temp, lwr, col="blue")
+
+plot(x=temp, y=pi_val*6,type="l",ylab=expression(pi),main="Expected Number of Failures vs. Temp",ylim=c(0,6))
+lines(temp, upr*6, col="blue")
+lines(temp, lwr*6, col="blue")
+
+```
+
+There are fewer estimations for the lower temperatures in the dataset, so there is higher uncertainty at lower temperatures.
+
+
+(d) The temperature was 31° at launch for the Challenger in 1986. Estimate the probability of an O-ring failure using this temperature, and compute a corresponding confidence interval. Discuss what assumptions need to be made in order to apply the inference procedures.
+
+(??? - values seem to extreme)
+```{r}
+single_pred<-predict(challenger_glm_2, list(Temp = c(31)),type="link",se.fit=TRUE)
+
+pred0 <- single_pred$fit
+pred <- inverse_logit(single_pred$fit)
+alpha <- 0.90
+sc <- abs(qnorm((1-alpha)/2))  ## Normal approx. to likelihood
+lwr=inverse_logit(pred0-(sc*single_pred$se.fit))
+upr=inverse_logit(pred0+(sc*single_pred$se.fit))
+
+lwr
+pred
+upr
+```
+
+We need to assume the same trend that occurs at the temperature range available in the dataset (53,81) also occurs at the lower temperature, that the model is still applicable.
+
+
+(e) Rather than using Wald or profile LR intervals for the probability of failure, Dalal et al. (1989) use a parametric bootstrap to compute intervals. Their process was to (1) simulate a large number of data sets (n = 23 for each) from the estimated model of  Temp; (2) estimate new models for each data set, say and (3) compute  at a specific temperature of interest. The authors used the 0.05 and 0.95 observed quantiles from the  simulated distribution as their 90% confidence interval limits. Using the parametric bootstrap, compute 90% confidence intervals separately at temperatures of 31° and 72°.27
+
+(f) Determine if a quadratic term is needed in the model for the temperature.
+
+Look at LRT for parameter of quadratic term--> look at p-value, if small, there will be evidence of quadratic relationship.
+
+**Part 4 (10 points)**
+
+With the same set of explanatory variables in your final model, estimate a linear regression model. Explain the model results; conduct model diagnostic; and assess the validity of the model assumptions.  Would you use the linear regression model or binary logistic regression in this case?  Explain why.
+
+```{r}
+linear_model_pressure<-lm(percent.O.ring.fail~Temp+Pressure,data=challenger)
+summary(linear_model_pressure)
+
+linear_model_temp_only<-lm(percent.O.ring.fail~Temp,data=challenger)
+summary(linear_model_temp_only)
+```
+
+**Part 5 (10 points)**
+
+Interpret the main result of your final model in terms of both odds and probability of failure. Summarize the final result with respect to the question(s) being asked and key takeaways from the analysis.
