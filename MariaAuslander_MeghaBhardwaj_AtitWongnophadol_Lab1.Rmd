@@ -70,7 +70,6 @@ library("scatterplot3d")
 scatterplot3d(challenger$Temp, challenger$Pressure, challenger$O.ring, pch = 19, type="h",
               xlab = "Temperature", ylab = "Pressure", zlab = "O.ring incidence")
 
-
 ```
 
 From the graphs above, there is an obvious relationship between temperature and O.ring incidence, whereas temperature lower than 60 some degree tends to associate with at least one O.ring incidence. 
@@ -88,7 +87,7 @@ The following matrix shows each column name as well as the number of missing val
 
 
 ```{r, fig.height = 3}
-par(mfrow = c(2,ncol(challenger)%/%2))
+# par(mfrow = c(2,ncol(challenger)%/%2))
 
 columns<-names(challenger)
 
@@ -124,7 +123,10 @@ Logistic regression assumes a binomial distribution, in the case of binomial dis
 
 (b) Estimate the logistic regression model using the explanatory variables in a linear form.
 
+There are two possible models--binomial and binary.
+
 ```{r}
+# binomial regression
 challenger$percent.O.ring.fail<- with(challenger, O.ring/Number)
 challenger_glm<-glm(percent.O.ring.fail~Temp+Pressure,
                   family=binomial(link="logit")
@@ -135,12 +137,21 @@ $$ logit(\hat\pi)=\beta_0+\beta_1 x_1 + \beta_2 x_2 $$
 $$logit(\hat\pi)=2.520195-0.098297 x_1 + 0.008484 x_2 $$
 Where $x_1=Temp$ and $x_2=Pressure$
 
+```{r}
+# binary regression (i.e., at least one O.ring failed is countered as a failed flight)
+challenger_glm_binary<-glm(O.ring >0 ~Temp+Pressure,
+                  family=binomial(link="logit")
+                  ,data=challenger)
+summary(challenger_glm_binary)
+```
+
 
 (c) Perform LRTs to judge the importance of the explanatory variables in the model. 
 
 (??? - Not sure if these are right, p values appear to be too high when compared to the model)
 
 ```{r}
+library("lmtest")
 temp_only<-glm(percent.O.ring.fail~Temp,
                   family=binomial(link="logit"),
                   data=challenger)
@@ -149,6 +160,15 @@ pressure_only<-glm(percent.O.ring.fail~Pressure,
                   data=challenger)
 lrtest(challenger_glm,temp_only)
 lrtest(challenger_glm,pressure_only)
+```
+
+```{r}
+# LRTs
+# Given other variables in model, "test = 'LR' is the default (type II)
+Anova(challenger_glm_binary, test = "LR")  
+
+# Sequential testing of variables (type I)
+anova(challenger_glm_binary, test = "Chisq")
 ```
 
 
@@ -178,6 +198,14 @@ $$ logit(\hat\pi)=5.0850-0.1156 x_1$$
 Where $x_1=Temp$
 
 
+```{r}
+# binary regression (i.e., at least one O.ring failed is countered as a failed flight)
+challenger_glm_binary<-glm(O.ring >0 ~Temp,
+                  family=binomial(link="logit")
+                  ,data=challenger)
+summary(challenger_glm_binary)
+```
+
 (b) Construct two plots: (1) $\pi$ vs. Temp and (2) Expected number of failures vs. Temp. Use a temperature range of 31° to 81° on the x-axis even though the minimum temperature in the data set was 53°.
 
 ```{r}
@@ -198,16 +226,17 @@ temp <-31:81
 pi_val <- predict(challenger_glm_2, list(Temp = temp),type="response")
 plot(x=temp, y=pi_val,type="l",ylab=expression(pi),main="Pi vs. Temp",ylim=c(0,1))
 
-inverse_logit = function(x){
+inverse_logit <- function(x){
   exp(x)/(1+exp(x))
 }
 
-predicted = predict(challenger_glm_2, list(Temp = temp), se.fit=TRUE)
+#Wald interval
+predicted <- predict(challenger_glm_2, list(Temp = temp), se.fit = TRUE)
 
 pred0 <- predicted$fit
 pred <- inverse_logit(predicted$fit)
-alpha <- 0.95
-sc <- abs(qnorm((1-alpha)/2))  ## Normal approx. to likelihood
+alpha <- 0.05
+sc <- abs(qnorm(alpha/2))  ## Normal approx. to likelihood
 lwr=inverse_logit(pred0-sc*predicted$se.fit)
 upr=inverse_logit(pred0+sc*predicted$se.fit)
 
@@ -231,8 +260,8 @@ single_pred<-predict(challenger_glm_2, list(Temp = c(31)),type="link",se.fit=TRU
 
 pred0 <- single_pred$fit
 pred <- inverse_logit(single_pred$fit)
-alpha <- 0.90
-sc <- abs(qnorm((1-alpha)/2))  ## Normal approx. to likelihood
+ci <- 0.90
+sc <- abs(qnorm((1-ci)/2))  ## Normal approx. to likelihood
 lwr=inverse_logit(pred0-(sc*single_pred$se.fit))
 upr=inverse_logit(pred0+(sc*single_pred$se.fit))
 
@@ -245,6 +274,44 @@ We need to assume the same trend that occurs at the temperature range available 
 
 
 (e) Rather than using Wald or profile LR intervals for the probability of failure, Dalal et al. (1989) use a parametric bootstrap to compute intervals. Their process was to (1) simulate a large number of data sets (n = 23 for each) from the estimated model of  Temp; (2) estimate new models for each data set, say and (3) compute  at a specific temperature of interest. The authors used the 0.05 and 0.95 observed quantiles from the  simulated distribution as their 90% confidence interval limits. Using the parametric bootstrap, compute 90% confidence intervals separately at temperatures of 31° and 72°.27
+
+```{r}
+# bootstrap function for simulating pi.hat
+bootstrap <- function(temp){
+
+  # bootstrap resampling of the dataset
+  challenger.rep <- sample_frac(challenger, replace = TRUE)
+  
+  # fit the model
+  challenger.rep$percent.O.ring.fail <- with(challenger.rep, O.ring/Number)
+  mod.rep.fit <- suppressWarnings(glm(percent.O.ring.fail~Temp,
+                    family=binomial(link="logit"),
+                    data=challenger.rep))
+  
+  # predict pi.hat
+  pi.hat <- predict(mod.rep.fit, list(Temp = temp), type="response")
+  
+  return(pi.hat)
+}
+
+# number of trials
+N <- 100000
+
+# save the list of simulated pi.hat
+rep.pi.hat.31 <- replicate(N, bootstrap(31))
+rep.pi.hat.72 <- replicate(N, bootstrap(72))
+
+# 90% confidence interval of pi.hat
+quantile(rep.pi.hat.31, c(.05, .50, .95)) # CI+median at 31 degrees
+quantile(rep.pi.hat.72, c(.05, .50, .95)) # CI+median at 72 degrees
+
+# average pi.hat
+mean(rep.pi.hat.31)
+mean(rep.pi.hat.72)
+```
+
+The parametric bootstrap method yield the following confidence intervals [0.21123, 0.99415] and [0.00571, 0.08427] for temperature 31 degree and 72 degree respectively.
+
 
 (f) Determine if a quadratic term is needed in the model for the temperature.
 
