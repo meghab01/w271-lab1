@@ -22,6 +22,7 @@ Conduct a thorough EDA of the data set. This should include both graphical and t
 ```{r}
 # data inspection
 challenger<-read.csv("challenger.csv")
+attach(challenger)
 head(challenger, 3)
 str(challenger)
 summary(challenger)
@@ -123,9 +124,13 @@ The response variable is O.ring, and the explanatory variables are Temp and  Pre
 
 (a) The authors use logistic regression to estimate the probability an O-ring will fail. In order to use this model, the authors needed to assume that each O-ring is independent for each launch. Discuss why this assumption is necessary and the potential problems with it. Note that a subsequent analysis helped to alleviate the authors’ concerns about independence.
 
-Logistic regression assumes a binomial distribution, in the case of binomial distribution, independence of trials is a necessary assumption. The issue is that the O-rings are on every rocket (6/rocket), so there may be some dependencies on each other given they are located on the same entity.
+Independence assumption for logistic regression - Characterizing the distributions of sums of random variables usually rest on two key results
+(1) law of large numbers (L.L.N) and
+(2) central limit theorems (C.L.T)
+Independence of random variables (standard i.i.d assumptions) are usually essential to obtaining such results. In a few cases we still have LLN and CLT theorems that relax either the independence assumption or the identical assumption. However these are generally much weaker, are much more obscure and are not as general and widely applicable as the theorems that use i.i.d assumptions. Typically, in the absence of i.i.d, central limit theorems that show asymptotic normality or the Gaussianness of sums of independent identical random variables will often not hold. And we really want limit theorems to hold.The epistemological value of probability theory is revealed only by limit theorems and limit theorems are much easier to obtain when we have independent observations. In simple terms, the independence assumption when true, helps cancel out variations, which helps you guarantee consistency of a method and lets you converge to your true result faster or with fewer samples.
+The authors suggest two models, one which uses binomial distribution estimating probabilty of O-ring failure at each joint and treating the 6 O-rings as 6 independent trials of the binomial distribution. The assumption of independence is important for this model (reasons stated above) The issue is that the O-rings are on every rocket (6/rocket), so there may be some dependencies on each other given they are located on the same entity.
 
-A subsequent analysis done by the author alleviates this concern, as the author performed a binary logistic regression model as well. In this model, the assumption was that a failure was counted if at least one O.ring on the rocket failed. And as shown in the paper, the estimated shapes of the probability of failure between both the binomial and binary logistic models were close to each other. So this is an evidence that O.ring failure was probably independent of each other.
+A subsequent analysis done by the author alleviates this concern, as the author performed a binary logistic regression model. In this model, the assumption was that a failure was counted if at least one O.ring on the rocket failed. And as shown in the paper, the estimated shapes of the probability of failure between both the binomial and binary logistic models were close to each other. So this is an evidence that O.ring failure was probably independent of each other.
 
 
 (b) Estimate the logistic regression model using the explanatory variables in a linear form.
@@ -134,12 +139,14 @@ There are two possible models--binomial and binary.
 
 #### Binomial Regression
 ```{r}
+#First model with binomial distribution
 challenger$percent.O.ring.fail<- with(challenger, O.ring/Number)
 challenger_glm<-glm(percent.O.ring.fail~Temp+Pressure,
                   family=binomial(link="logit")
                   ,data=challenger)
 summary(challenger_glm)
 ```
+
 $$ logit(\hat\pi)=\beta_0+\beta_1 x_1 + \beta_2 x_2 $$
 $$logit(\hat\pi)=2.520195-0.098297 x_1 + 0.008484 x_2 $$
 Where $x_1=Temp$ and $x_2=Pressure$
@@ -150,7 +157,10 @@ Where $x_1=Temp$ and $x_2=Pressure$
 In the case of binary regression, we assume at least one O.ring failed is countered as a failed flight (1) while no failures is counted as a successful flight (0).
 
 ```{r}
-challenger_glm_binary<-glm(O.ring >0 ~Temp+Pressure,
+#Model 2 using binary regression
+bin.o.ring<-ifelse(O.ring>0,1,0)
+bin.o.ring
+challenger_glm_binary<-glm(bin.o.ring >0 ~Temp+Pressure,
                   family=binomial(link="logit")
                   ,data=challenger)
 summary(challenger_glm_binary)
@@ -162,18 +172,7 @@ $$logit(\hat\pi)=13.292360-0.228671 x_1 + 0.010400 x_2 $$
 
 
 ```{r}
-library("lmtest")
-temp_only<-glm(percent.O.ring.fail~Temp,
-                  family=binomial(link="logit"),
-                  data=challenger)
-pressure_only<-glm(percent.O.ring.fail~Pressure,
-                  family=binomial(link="logit"),
-                  data=challenger)
-lrtest(challenger_glm,temp_only)
-lrtest(challenger_glm,pressure_only)
-```
 
-```{r}
 # LRTs on the binomial regression model
 # Given other variables in model, "test = 'LR' is the default (type II)
 library(car)
@@ -184,6 +183,7 @@ anova(challenger_glm, test = "Chisq")
 ```
 
 ```{r}
+
 # LRTs on the binary regression model
 # Given other variables in model, "test = 'LR' is the default (type II)
 library(car)
@@ -192,6 +192,7 @@ Anova(challenger_glm_binary, test = "LR")
 # Sequential testing of variables (type I)
 anova(challenger_glm_binary, test = "Chisq")
 ```
+
 
 (d) The authors chose to remove Pressure from the model based on the LRTs. Based on your results, discuss why you think this was done. Are there any potential problems with removing this variable?
 
@@ -221,7 +222,7 @@ Where $x_1=Temp$
 
 ```{r}
 # binary regression (i.e., at least one O.ring failed is countered as a failed flight)
-challenger_glm_binary<-glm(O.ring >0 ~Temp,
+challenger_glm_binary<-glm(bin.o.ring ~Temp,
                   family=binomial(link="logit")
                   ,data=challenger)
 summary(challenger_glm_binary)
@@ -412,3 +413,17 @@ Based on the analyses above, linear regression model would not be our choice con
 **Part 5 (10 points)**
 
 Interpret the main result of your final model in terms of both odds and probability of failure. Summarize the final result with respect to the question(s) being asked and key takeaways from the analysis.
+
+```{r}
+library (package = mcprofile)  
+c=10
+coefficients(challenger_glm_binary)
+OR = exp(coefficients(challenger_glm_binary)[2]*c)
+OR
+K <- matrix (data = c (1,50), nrow = 1, ncol = 2) 
+linear.combo <- mcprofile (object = challenger_glm_binary, CM = K)  
+ci.logit.profile <- confint (object = linear.combo, level = 0.95) 
+exp(ci.logit.profile$confint)
+exp(ci.logit.profile$confint) /(1+exp(ci.logit.profile$confint))
+
+```
