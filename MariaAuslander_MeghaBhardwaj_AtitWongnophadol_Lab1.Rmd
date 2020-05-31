@@ -21,10 +21,7 @@ Conduct a thorough EDA of the data set. This should include both graphical and t
 
 ```{r}
 # data inspection
-
 challenger<-read.csv("challenger.csv")
-# head(challenger)
-# tail(challenger)
 str(challenger)
 summary(challenger)
 ```
@@ -81,8 +78,6 @@ The last 3d plot attempts to draw a relationship between an interaction between 
 
 In summary, there is an obvious relationship between temperature and O.ring incidence that justifies further exploration and model formulation. A light evidence exists for a relationship between pressure and O.ring incidence; a hypothesis on pressure factor may be formed and tested to verify if it plays a significant role in explaining O.ring incidence.
 
-<!-- EDA below from Maria -->
-
 The following matrix shows each column name as well as the number of missing values, the minimum column value, the median column value, and the maximum column value (respectively). Following the matrix, each histogram of values for columns were shown.
 
 
@@ -96,17 +91,20 @@ challenger.eda.matrix <- matrix(data=NA,nrow=length(challenger),ncol=5)
 counter=1
 for (col in columns) {
     show(hist(challenger[[col]],main=col,xlab=col))
-    num_missing<-sum(is.na(challenger[[col]]))#/length(challenger$col)
+    num_missing<-sum(is.na(challenger[[col]]))
     maxn<-max(challenger[[col]])
     medn<-median(challenger[[col]])
     minn<-min(challenger[[col]])
     challenger.eda.matrix[counter,] = c(col,num_missing,minn,medn,maxn)
     counter = counter+1
 }
-# challenger.eda.matrix
-# summary(challenger)
 ```
-Looking at the histograms and sumary statistics, the low pressure data points may be anomalies and a cause for concern. The large O.ring values additionally seem to an anomalie and potentially a cause for concern. Number seems to maintain a value of 6 throughout the dataset.
+Looking at the histograms and summary statistics, the low pressure data points may be anomalies and a cause for concern. The large O.ring values additionally seem to be anomalies and potentially a cause for concern. Number maintains a value of 6 throughout the dataset.
+
+The data below shows the number of missing values for each column within the dataset, there is no missing data.
+```{r}
+challenger.eda.matrix[,2]
+```
 
 
 **Part 2 (20 points)** 
@@ -117,7 +115,6 @@ The response variable is O.ring, and the explanatory variables are Temp and  Pre
 
 (a) The authors use logistic regression to estimate the probability an O-ring will fail. In order to use this model, the authors needed to assume that each O-ring is independent for each launch. Discuss why this assumption is necessary and the potential problems with it. Note that a subsequent analysis helped to alleviate the authors’ concerns about independence.
 
-
 Logistic regression assumes a binomial distribution, in the case of binomial distribution, independence of trials is a necessary assumption. The issue is that the O-rings are on every rocket (6/rocket), so there may be some dependencies on each other given they are located on the same entity.
 
 
@@ -125,8 +122,8 @@ Logistic regression assumes a binomial distribution, in the case of binomial dis
 
 There are two possible models--binomial and binary.
 
+#### Binomial Regression
 ```{r}
-# binomial regression
 challenger$percent.O.ring.fail<- with(challenger, O.ring/Number)
 challenger_glm<-glm(percent.O.ring.fail~Temp+Pressure,
                   family=binomial(link="logit")
@@ -137,8 +134,12 @@ $$ logit(\hat\pi)=\beta_0+\beta_1 x_1 + \beta_2 x_2 $$
 $$logit(\hat\pi)=2.520195-0.098297 x_1 + 0.008484 x_2 $$
 Where $x_1=Temp$ and $x_2=Pressure$
 
+
+#### Binary Regression
+
+In the case of binary regression, we assume at least one O.ring failed is countered as a failed flight (1) while no failures is counted as a successful flight (0).
+
 ```{r}
-# binary regression (i.e., at least one O.ring failed is countered as a failed flight)
 challenger_glm_binary<-glm(O.ring >0 ~Temp+Pressure,
                   family=binomial(link="logit")
                   ,data=challenger)
@@ -152,14 +153,17 @@ summary(challenger_glm_binary)
 
 ```{r}
 library("lmtest")
+library("car")
 temp_only<-glm(percent.O.ring.fail~Temp,
                   family=binomial(link="logit"),
                   data=challenger)
 pressure_only<-glm(percent.O.ring.fail~Pressure,
                   family=binomial(link="logit"),
                   data=challenger)
-lrtest(challenger_glm,temp_only)
-lrtest(challenger_glm,pressure_only)
+
+Anova(challenger_glm) 
+anova(temp_only,challenger_glm, test = "Chisq") 
+anova(pressure_only,challenger_glm, test = "Chisq") 
 ```
 
 ```{r}
@@ -237,8 +241,8 @@ pred0 <- predicted$fit
 pred <- inverse_logit(predicted$fit)
 alpha <- 0.05
 sc <- abs(qnorm(alpha/2))  ## Normal approx. to likelihood
-lwr=inverse_logit(pred0-sc*predicted$se.fit)
-upr=inverse_logit(pred0+sc*predicted$se.fit)
+lwr<-inverse_logit(pred0-sc*predicted$se.fit)
+upr<-inverse_logit(pred0+sc*predicted$se.fit)
 
 lines(temp, upr, col="blue")
 lines(temp, lwr, col="blue")
@@ -249,8 +253,7 @@ lines(temp, lwr*6, col="blue")
 
 ```
 
-There are fewer estimations for the lower temperatures in the dataset, so there is higher uncertainty at lower temperatures.
-
+There are fewer estimations for the lower temperatures in the dataset, so there is higher uncertainty at lower temperatures. This higher uncertainty also occurs at the upper end of the data with higher temperatures as there are less estimates for higher temperatures as well.
 
 (d) The temperature was 31° at launch for the Challenger in 1986. Estimate the probability of an O-ring failure using this temperature, and compute a corresponding confidence interval. Discuss what assumptions need to be made in order to apply the inference procedures.
 
@@ -315,18 +318,41 @@ The parametric bootstrap method yield the following confidence intervals [0.2112
 
 (f) Determine if a quadratic term is needed in the model for the temperature.
 
-Look at LRT for parameter of quadratic term--> look at p-value, if small, there will be evidence of quadratic relationship.
+```{r}
+quad_model<-glm(percent.O.ring.fail~Temp+I(Temp**2),
+                  family=binomial
+                  ,data=challenger)
+summary(quad_model)
+
+temp_only<-glm(percent.O.ring.fail~Temp,
+                  family=binomial,
+                  data=challenger)
+
+anova(temp_only,quad_model,test="LR")
+```
+
+The p-value of the likelihood ratio test comparing the model with a quadratic term of temperature and without a quadratic term of temperature is large (>0.05), indicating that there is not enough evidence suggesting a quadratic term is needed in the model.
 
 **Part 4 (10 points)**
 
 With the same set of explanatory variables in your final model, estimate a linear regression model. Explain the model results; conduct model diagnostic; and assess the validity of the model assumptions.  Would you use the linear regression model or binary logistic regression in this case?  Explain why.
 
-```{r}
-linear_model_pressure<-lm(percent.O.ring.fail~Temp+Pressure,data=challenger)
-summary(linear_model_pressure)
+In the final model, we use only $Temp$ as a independent variable as $Pressure$ was not statistically significant and there is no evidence to suggest a quadratic term of $Temp$ is needed.
 
+```{r}
 linear_model_temp_only<-lm(percent.O.ring.fail~Temp,data=challenger)
 summary(linear_model_temp_only)
+```
+
+```{r}
+library(gvlma)
+gvmodel <- gvlma(linear_model_temp_only)
+summary(gvmodel)
+```
+
+
+```{r}
+plot(linear_model_temp_only)
 ```
 
 **Part 5 (10 points)**
