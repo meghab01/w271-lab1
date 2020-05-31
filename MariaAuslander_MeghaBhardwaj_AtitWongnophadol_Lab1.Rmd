@@ -337,7 +337,7 @@ The p-value of the likelihood ratio test comparing the model with a quadratic te
 
 With the same set of explanatory variables in your final model, estimate a linear regression model. Explain the model results; conduct model diagnostic; and assess the validity of the model assumptions.  Would you use the linear regression model or binary logistic regression in this case?  Explain why.
 
-In the final model, we use only $Temp$ as a independent variable as $Pressure$ was not statistically significant and there is no evidence to suggest a quadratic term of $Temp$ is needed.
+In the final model, we use only $Temp$ as a independent variable as $Pressure$ was not statistically significant and there is no evidence to suggest a quadratic term of $Temp$ is needed. We use the dependent variable from the binomial model (`percent.O.ring.fail`) in the linear model, as the continuous nature of the variable is more conducive to the linear model.
 
 ```{r}
 linear_model_temp_only<-lm(percent.O.ring.fail~Temp,data=challenger)
@@ -350,10 +350,43 @@ gvmodel <- gvlma(linear_model_temp_only)
 summary(gvmodel)
 ```
 
+Before checking assumptions through individual plots, we ran the Global Validation of Linear Models Assumptions (gvlma) test. Through this test we see violations of the global stat, skewness, and kurtosis assumptions. We fail to reject the assumptions of the link function and heteroscedasticity. 
+
+### CLM Assumptions
+
+#### Linear Population Model
+
+Under the linear population model assumption, the relationship between dependent and independent variables is meant to be linear. Looking at the global stat p-value (1.670532e-05) it appears this is not the case. This p-value indicates a non-linear relationship between variables. 
+
+#### Random Sampling
+
+The random sampling assumption is best tested by reviewing the methods of data collection for the dataset. If the data was collected in a random, unbiased way the assumption would be fulfilled, if not, the assumption would be rejected.
+
+#### Zero Conditional Mean
+```{r}
+plot(linear_model_temp_only, which = 1)
+```
+
+Looking at the residual vs. fitted plot above, there is a violation of the zero conditional mean assumption. In the case of the zero conditional mean assumption being fulfilled, we would expect residuals to be spaced evenly around the 0 line, this is not the case. Through the graph it appears there may be some sort of curved relationship present.
+
+#### Homoscedasticity
 
 ```{r}
-plot(linear_model_temp_only)
+plot(linear_model_temp_only, which = 3)
 ```
+
+The homoscedasticity assumption states that the variance of a residual should be about the same for any value of x. The scale-location plot shows a violation of this assumption. If the assumption were fulfilled we would expect the points to be spaced evenly and randomly above and below the line, however, in this case there appears to be evidence of a curved relationship.
+
+#### Normality of Errors
+```{r}
+install.packages('olsrr')
+library(olsrr)
+plot(linear_model_temp_only, which = 2)
+hist(linear_model_temp_only$residuals)
+ols_test_normality(linear_model_temp_only)
+```
+
+Looking at the normal Q-Q plot, the histogram of residuals and the Anderson-Darling test statistic the normality of errors assumption is not satisfied. The normal Q-Q plot shows many residuals straying far from the line, indicating a distribution that is not normal. The histogram of residuals does not show a normal relationship with residuals distributed around the mean (which following CLM assumptions should be 0). Additionally the Anderson-Darling test statistic has a p-value of 0.0046 < 0.05, indicating that the null hypothesis of normality of errors is violated. Using the skewness assumption test in the glvma (which showed cause for violation), it appears the model would need to be transformed to meet the normality assumption.
 
 **Part 5 (10 points)**
 
