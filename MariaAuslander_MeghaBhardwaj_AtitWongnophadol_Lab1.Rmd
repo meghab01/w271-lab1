@@ -423,9 +423,12 @@ Based on the analyses above, linear regression model would not be our choice con
 
 Interpret the main result of your final model in terms of both odds and probability of failure. Summarize the final result with respect to the question(s) being asked and key takeaways from the analysis.
 
+Model Interpretation
 We will evaluate the odds ration of O-ring failure for a 10 degree increase in temperature. For a 10 degree increate in temperature, the odds ratio of O.ring failure changes by 0.098
 Next, we do a profile LRT test for probability of failure at temperature = 30 degrees and temperature = 80 degrees. With 95% confidence the probability of atleast 1 O.ring failure is between 0.8 to 1 with estimated probabilty = .99
 At temperature = 80 degrees - With 95% confidence the probability of atleast 1 O.ring failure is between 0.0 to .22 and the estimated probabilty = .03
+Model Summary
+In conclusion, we see evidence for the effect of temperature on O.ring failure. At lower temperatures, the probability of O.ring failure is significantly lower. In our model interpretation, we saw that reducing temperature from 80 degrees to 31 degress increases the probability of failure by 97%
 
 ```{r}
 #library (package = mcprofile)  
