@@ -348,14 +348,14 @@ Based on the analyses above, linear regression model would not be our choice con
 Interpret the main result of your final model in terms of both odds and probability of failure. Summarize the final result with respect to the question(s) being asked and key takeaways from the analysis.
 
 Model Interpretation
-We will evaluate the odds ration of O-ring failure for a 10 degree increase in temperature. For a 10 degree increate in temperature, the odds ratio of O.ring failure changes by 0.3
+We will evaluate the odds ration of O-ring failure for a 10 degree increase in temperature. For a 10 degree increate in temperature, the odds ratio of O.ring failure changes by 0.3, meaning there is approximately 70% less odds for an O.ring failure with an increase of 10 degree in temperature; alternative interpretation is that with a decrease of 10 degrees in temperature, the odds of an O.ring failure would be 3 times greater.
 Next, we do a profile LRT test for probability of failure at temperature = 30 degrees and temperature = 80 degrees. With 95% confidence the probability of O.ring failure is between 0.15 to .99 with estimated probabilty = .83
 At temperature = 80 degrees - With 95% confidence the probability of atleast 1 O.ring failure is between 0.0 to .22 and the estimated probabilty = .02
 Model Summary
-In conclusion, we see evidence for the effect of temperature on O.ring failure. At lower temperatures, the probability of O.ring failure is significantly lower. In our model interpretation, we saw that reducing temperature from 80 degrees to 31 degress increases the probability of failure by 96%
+In conclusion, we see evidence for the effect of temperature on O.ring failure. At lower temperatures, the probability of O.ring failure is significantly higer. In our model interpretation, we saw that reducing temperature from 80 degrees to 31 degress increases the probability of failure by 96%
 
 ```{r}
-#library (package = mcprofile)  
+library (package = mcprofile)  
 c=10
 #coefficients(challenger_glm_binary)
 OR = exp(coefficients(challenger_glm_2)[2]*c)
