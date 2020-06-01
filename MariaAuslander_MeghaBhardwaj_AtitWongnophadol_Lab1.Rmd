@@ -22,7 +22,6 @@ Conduct a thorough EDA of the data set. This should include both graphical and t
 ```{r}
 # data inspection
 challenger<-read.csv("challenger.csv")
-head(challenger, 3)
 str(challenger)
 summary(challenger)
 ```
@@ -94,16 +93,13 @@ The following matrix shows each column name as well as the number of missing val
 ```{r, fig.height = 3}
 columns<-names(challenger)
 
-challenger.eda.matrix <- matrix(data=NA,nrow=length(challenger),ncol=5)
+challenger.eda.matrix <- matrix(data=NA,nrow=length(challenger),ncol=2)
 
 counter=1
 for (col in columns) {
     show(hist(challenger[[col]],main=col,xlab=col))
     num_missing<-sum(is.na(challenger[[col]]))
-    maxn<-max(challenger[[col]])
-    medn<-median(challenger[[col]])
-    minn<-min(challenger[[col]])
-    challenger.eda.matrix[counter,] = c(col,num_missing,minn,medn,maxn)
+    challenger.eda.matrix[counter,] = c(col,num_missing)
     counter = counter+1
 }
 ```
@@ -195,8 +191,7 @@ anova(challenger_glm_binary, test = "Chisq")
 
 (d) The authors chose to remove Pressure from the model based on the LRTs. Based on your results, discuss why you think this was done. Are there any potential problems with removing this variable?
 
-
-`Pressure` was likely taken from the model because the according p-value was large (p>alpha=0.05) while the p-value for `Temp` was small (p<alpha=0.05). There is not enough evidence to assume that `Pressure` is important in the explanatory model, however, removing `Pressure` from the model may be an issue if `Pressure` could be the part of an interaction term or a transformation in a future model.
+$Pressure$ was likely taken from the model because the according p-value was large (p>alpha=0.05) while the p-value for $Temp$ was small (p<alpha=0.05). There is not enough evidence to assume that $Pressure$ is important in the explanatory model, however, removing $Pressure$ from the model may be an issue if `Pressure` could be the part of an interaction term or a transformation in a future model.
 
 
 **Part 3 (35 points)**
@@ -234,10 +229,8 @@ $$ logit(\hat\pi)=15.0429-0.2322 x_1$$
 ```{r}
 temp <-31:81 # range of temperature
 
-# pi.hat estimate for binomial regression model
 pi.hat.binomial <- predict(challenger_glm_2, list(Temp = temp), type="response")
 
-# plot pi.hat and expected # failures
 plot(x = temp, y = pi.hat.binomial, type = "l", ylab = expression(pi), main = "Pi vs. Temp")
 plot(x = temp, y= pi.hat.binomial*6, type="l", ylab = "Expected Number of Failures", main="Expected Number of Failures vs. Temp")
 ```
@@ -282,7 +275,7 @@ single_pred<-predict(challenger_glm_2, list(Temp = c(31)),type="link",se.fit=TRU
 
 pred0 <- single_pred$fit
 pred <- inverse_logit(single_pred$fit)
-ci <- 0.90
+ci <- 0.95
 sc <- abs(qnorm((1-ci)/2))  ## Normal approx. to likelihood
 lwr=inverse_logit(pred0-(sc*single_pred$se.fit))
 upr=inverse_logit(pred0+(sc*single_pred$se.fit))
@@ -341,13 +334,7 @@ The parametric bootstrap method yields the following confidence intervals [0.204
 quad_model<-glm(percent.O.ring.fail~Temp+I(Temp**2),
                   family=binomial
                   ,data=challenger)
-summary(quad_model)
-
-temp_only<-glm(percent.O.ring.fail~Temp,
-                  family=binomial,
-                  data=challenger)
-
-anova(temp_only,quad_model,test="LR")
+anova(challenger_glm_2,quad_model,test="LR")
 ```
 
 The p-value of the likelihood ratio test comparing the model with a quadratic term of temperature and without a quadratic term of temperature is large (>0.05), indicating that there is not enough evidence suggesting a quadratic term is needed in the model.
@@ -363,15 +350,7 @@ linear_model_temp_only<-lm(percent.O.ring.fail~Temp,data=challenger)
 summary(linear_model_temp_only)
 ```
 
-```{r}
-library(gvlma) # to test linear model assumptions
-gvmodel <- gvlma(linear_model_temp_only)
-summary(gvmodel)
-```
-
-Before checking assumptions through individual plots, we ran the Global Validation of Linear Models Assumptions (gvlma) test. Through this test we see violations of the global stat, skewness, and kurtosis assumptions. We fail to reject the assumptions of the link function and heteroscedasticity. 
-
-### CLM Assumptions
+### CLM Assumptions and Model Diagnostics
 
 #### Linear Population Model
 
@@ -398,14 +377,10 @@ The homoscedasticity assumption states that the variance of a residual should be
 
 #### Normality of Errors
 ```{r}
-# install.packages('olsrr')
-library(olsrr)
 plot(linear_model_temp_only, which = 2)
-hist(linear_model_temp_only$residuals)
-ols_test_normality(linear_model_temp_only)
 ```
 
-Looking at the normal Q-Q plot, the histogram of residuals and the Anderson-Darling test statistic the normality of errors assumption is not satisfied. The normal Q-Q plot shows many residuals straying far from the line, indicating a distribution that is not normal. The histogram of residuals does not show a normal relationship with residuals distributed around the mean (which following CLM assumptions should be 0). Additionally the Anderson-Darling test statistic has a p-value of 0.0046 < 0.05, indicating that the null hypothesis of normality of errors is violated. Using the skewness assumption test in the glvma (which showed cause for violation), it appears the model would need to be transformed to meet the normality assumption.
+Looking at the normal Q-Q plot, the normality of errors assumption is not satisfied. The normal Q-Q plot shows many residuals straying far from the line, indicating a distribution that is not normal.
 
 Based on the analyses above, linear regression model would not be our choice considering it violates several key assumptions. Moreover, a prediction from the linear model may not be in the range [0,1], required in estimating the probability of failure in our study. Given these reasons, our choice of model would be the binomial logit model.
 
