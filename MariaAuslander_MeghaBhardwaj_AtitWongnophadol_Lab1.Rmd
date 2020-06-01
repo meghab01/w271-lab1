@@ -8,6 +8,7 @@ output:
   number_sections: true
 fontsize: 11pt
 geometry: margin=1in
+
 ---
 
 ```{r set-options, echo=FALSE, cache=FALSE}
@@ -155,7 +156,7 @@ $$logit(\hat\pi)=13.292360-0.228671 x_1 + 0.010400 x_2 $$
 library(car)
 Anova(challenger_glm, test = "LR")  
 ```
-
+We will use the binary regression model for the analysis. We run the Anova test for LRT analysis of variables. Temperature has an LRT statistic = 7.7 and P(A>7.7) = .005 This shows that temperature has high statistical significance. On the other hand, Pressure has LRT statistic = 1.5 and P(A>1.5) = 0.22 which is not statistically significant
 ```{r}
 Anova(challenger_glm_binary, test = "LR")  
 anova(challenger_glm_binary, test = "Chisq")
@@ -210,13 +211,10 @@ plot(x = temp, y= pi.hat.binomial*6, type="l", ylab = "Expected Failures", main=
 ```{r}
 temp <-31:81
 pi_val <- predict(challenger_glm_2, list(Temp = temp),type="response")
-plot(x=temp, y=pi_val,type="l",ylab=expression(pi),main="Pi vs. Temp",ylim=c(0,1))
 
 inverse_logit <- function(x){
   exp(x)/(1+exp(x))
 }
-
-#Wald interval
 predicted <- predict(challenger_glm_2, list(Temp = temp), se.fit = TRUE)
 pred0 <- predicted$fit
 pred <- inverse_logit(predicted$fit)
@@ -224,8 +222,11 @@ alpha <- 0.05
 sc <- abs(qnorm(alpha/2))  ## Normal approx. to likelihood
 lwr<-inverse_logit(pred0-sc*predicted$se.fit)
 upr<-inverse_logit(pred0+sc*predicted$se.fit)
+
+plot(x=temp, y=pi_val,type="l",ylab=expression(pi),main="Pi vs. Temp",ylim=c(0,1))
 lines(temp, upr, col="blue")
 lines(temp, lwr, col="blue")
+
 plot(x=temp, y=pi_val*6,type="l",ylab=expression(pi),main="Expected Failures vs. Temp",ylim=c(0,6))
 lines(temp, upr*6, col="blue")
 lines(temp, lwr*6, col="blue")
@@ -236,7 +237,7 @@ There are fewer estimations for the lower temperatures in the dataset, so there 
 (d) The temperature was 31° at launch for the Challenger in 1986. Estimate the probability of an O-ring failure using this temperature, and compute a corresponding confidence interval. Discuss what assumptions need to be made in order to apply the inference procedures.
 
 ```{r}
-single_pred<-predict(challenger_glm_2, list(Temp = c(31)),type="link",se.fit=TRUE)
+single_pred<-predict(challenger_glm_binary, list(Temp = c(31)),type="link",se.fit=TRUE)
 
 pred0 <- single_pred$fit
 pred <- inverse_logit(single_pred$fit)
@@ -344,9 +345,12 @@ Based on the analyses above, linear regression model would not be our choice con
 
 Interpret the main result of your final model in terms of both odds and probability of failure. Summarize the final result with respect to the question(s) being asked and key takeaways from the analysis.
 
+Model Interpretation
 We will evaluate the odds ration of O-ring failure for a 10 degree increase in temperature. For a 10 degree increate in temperature, the odds ratio of O.ring failure changes by 0.098
 Next, we do a profile LRT test for probability of failure at temperature = 30 degrees and temperature = 80 degrees. With 95% confidence the probability of atleast 1 O.ring failure is between 0.8 to 1 with estimated probabilty = .99
 At temperature = 80 degrees - With 95% confidence the probability of atleast 1 O.ring failure is between 0.0 to .22 and the estimated probabilty = .03
+Model Summary
+In conclusion, we see evidence for the effect of temperature on O.ring failure. At lower temperatures, the probability of O.ring failure is significantly lower. In our model interpretation, we saw that reducing temperature from 80 degrees to 31 degress increases the probability of failure by 97%
 
 ```{r}
 library (package = mcprofile)  
@@ -364,3 +368,5 @@ ci.logit.profile <- confint (object = linear.combo, level = 0.95)
 inverse_logit(ci.logit.profile$estimate)
 inverse_logit(ci.logit.profile$confint)
 ```
+
+
