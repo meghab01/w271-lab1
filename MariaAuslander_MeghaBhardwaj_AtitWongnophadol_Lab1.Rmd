@@ -8,6 +8,7 @@ output:
   number_sections: true
 fontsize: 11pt
 geometry: margin=1in
+
 ---
 
 ```{r set-options, echo=FALSE, cache=FALSE}
@@ -32,6 +33,9 @@ In the Challenger dataset, there are 23 observations with 5 columns. The column 
 
 Next, pairwise relationships among $Temp$, $Pressure$ and $O.ring$ are plotted to identify any meaningful pattern and anomaly.
 
+```{r, fig.height = 2.5, fig.width = 8, fig.align='center'}
+# plot 2 tiled histograms
+par(mfrow = c(1,2))
 
 ```{r, fig.height = 2.5}
 # pairwise relationships between variables of interest
@@ -131,7 +135,7 @@ Independence of random variables (standard i.i.d assumptions) are usually essent
 The authors suggest two models, one which uses binomial distribution estimating probabilty of O-ring failure at each joint and treating the 6 O-rings as 6 independent trials of the binomial distribution. The assumption of independence is important in this model, since the problem in this case is modelled as a binomial logistic regression with each O.ring failure treated as an independent trial. The trial size in this case, n = 6 and the number of failures, w = number of O.ring failed. The issue is that the O-rings are on every rocket (6/rocket), so there may be some dependencies on each other given they are located on the same entity.
 
 A subsequent analysis done by the author alleviates this concern, as the author performed a binary logistic regression model. In this model, the assumption was that a failure was counted if at least one O.ring on the rocket failed. In this case the outcome y =0 when number of O.ring failure equal to 0, otherwise 1. This model is not based on the same assumption of independence as the binomial distribution since the probability of success/failure is only depending on whether there was any O.ring failure or not.
-And as shown in the paper, the estimated shapes of the probability of failure between both the binomial and binary logistic models were close to each other. So this is an evidence that O.ring failure was probably independent of each other.
+And as shown in the paper, the estimated shapes of the probability of failure between both the binomial and binary logistic models were close to each other. 
 
 
 (b) Estimate the logistic regression model using the explanatory variables in a linear form.
@@ -173,18 +177,15 @@ $$logit(\hat\pi)=13.292360-0.228671 x_1 + 0.010400 x_2 $$
 
 
 ```{r}
-
 # LRTs on the binomial regression model
 # Given other variables in model, "test = 'LR' is the default (type II)
 library(car)
 Anova(challenger_glm, test = "LR")  
-
 # Sequential testing of variables (type I)
 anova(challenger_glm, test = "Chisq")
 ```
-
+We will use the binary regression model for the analysis. We run the Anova test for LRT analysis of variables. Temperature has an LRT statistic = 7.7 and P(A>7.7) = .005 This shows that temperature has high statistical significance. On the other hand, Pressure has LRT statistic = 1.5 and P(A>1.5) = 0.22 which is not statistically significant
 ```{r}
-
 # LRTs on the binary regression model
 # Given other variables in model, "test = 'LR' is the default (type II)
 library(car)
@@ -193,7 +194,6 @@ Anova(challenger_glm_binary, test = "LR")
 # Sequential testing of variables (type I)
 anova(challenger_glm_binary, test = "Chisq")
 ```
-
 
 (d) The authors chose to remove Pressure from the model based on the LRTs. Based on your results, discuss why you think this was done. Are there any potential problems with removing this variable?
 
@@ -250,7 +250,7 @@ plot(x = temp, y= pi.hat.binomial*6, type="l", ylab = "Expected Number of Failur
 
 ```{r}
 temp <-31:81
-pi_val <- predict(challenger_glm_2, list(Temp = temp),type="response")
+pi_val <- predict(challenger_glm_binary, list(Temp = temp),type="response")
 plot(x=temp, y=pi_val,type="l",ylab=expression(pi),main="Pi vs. Temp",ylim=c(0,1))
 
 inverse_logit <- function(x){
@@ -258,17 +258,25 @@ inverse_logit <- function(x){
 }
 
 #Wald interval
-predicted <- predict(challenger_glm_2, list(Temp = temp), se.fit = TRUE)
+linear.pred <- predict(challenger_glm_binary, list(Temp = temp), se.fit = TRUE)
+pi.hat=inverse_logit(linear.pred$fit)
+#pred0 <- linear.pred$fit
 
-pred0 <- predicted$fit
-pred <- inverse_logit(predicted$fit)
+#pred <- inverse_logit(predicted$fit)
 alpha <- 0.05
-sc <- abs(qnorm(alpha/2))  ## Normal approx. to likelihood
-lwr<-inverse_logit(pred0-sc*predicted$se.fit)
-upr<-inverse_logit(pred0+sc*predicted$se.fit)
+#sc <- abs(qnorm(alpha/2))  ## Normal approx. to likelihood
+lwr <- linear.pred$fit - qnorm (p =  1 - alpha /2) * linear.pred$se 
+upr<- linear.pred$fit + qnorm (p =  1 - alpha /2) * linear.pred$se 
 
-lines(temp, upr, col="blue")
+#CI.pi <- inverse_logit(CI.lin.pred) 
+
+lwr<-inverse_logit(lwr)
+upr<-inverse_logit(upr)
+data.frame(temp, pi.hat, lower = lwr, upper  = upr)
+
 lines(temp, lwr, col="blue")
+lines(temp, upr, col="blue")
+
 
 plot(x=temp, y=pi_val*6,type="l",ylab=expression(pi),main="Expected Number of Failures vs. Temp",ylim=c(0,6))
 lines(temp, upr*6, col="blue")
@@ -280,7 +288,7 @@ There are fewer estimations for the lower temperatures in the dataset, so there 
 (d) The temperature was 31° at launch for the Challenger in 1986. Estimate the probability of an O-ring failure using this temperature, and compute a corresponding confidence interval. Discuss what assumptions need to be made in order to apply the inference procedures.
 
 ```{r}
-single_pred<-predict(challenger_glm_2, list(Temp = c(31)),type="link",se.fit=TRUE)
+single_pred<-predict(challenger_glm_binary, list(Temp = c(31)),type="link",se.fit=TRUE)
 
 pred0 <- single_pred$fit
 pred <- inverse_logit(single_pred$fit)
@@ -436,3 +444,5 @@ ci.logit.profile <- confint (object = linear.combo, level = 0.95)
 exp(ci.logit.profile$estimate)/(1+exp(ci.logit.profile$estimate))
 exp(ci.logit.profile$confint)/(1+exp(ci.logit.profile$confint))
 ```
+
+
