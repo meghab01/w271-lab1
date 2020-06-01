@@ -414,16 +414,24 @@ Based on the analyses above, linear regression model would not be our choice con
 
 Interpret the main result of your final model in terms of both odds and probability of failure. Summarize the final result with respect to the question(s) being asked and key takeaways from the analysis.
 
+We will evaluate the odds ration of O-ring failure for a 10 degree increase in temperature. For a 10 degree increate in temperature, the odds ratio of O.ring failure changes by 0.098
+Next, we do a profile LRT test for probability of failure at temperature = 30 degrees and temperature = 80 degrees. With 95% confidence the probability of atleast 1 O.ring failure is between 0.8 to 1 with estimated probabilty = .99
+At temperature = 80 degrees - With 95% confidence the probability of atleast 1 O.ring failure is between 0.0 to .22 and the estimated probabilty = .03
+
 ```{r}
-library (package = mcprofile)  
+#library (package = mcprofile)  
 c=10
-coefficients(challenger_glm_binary)
+#coefficients(challenger_glm_binary)
 OR = exp(coefficients(challenger_glm_binary)[2]*c)
 OR
-K <- matrix (data = c (1,50), nrow = 1, ncol = 2) 
+K <- matrix (data = c (1,30), nrow = 1, ncol = 2) 
 linear.combo <- mcprofile (object = challenger_glm_binary, CM = K)  
 ci.logit.profile <- confint (object = linear.combo, level = 0.95) 
-exp(ci.logit.profile$confint)
-exp(ci.logit.profile$confint) /(1+exp(ci.logit.profile$confint))
-
+exp(ci.logit.profile$estimate)/(1+exp(ci.logit.profile$estimate))
+exp(ci.logit.profile$confint)/(1+exp(ci.logit.profile$confint))
+K <- matrix (data = c (1,80), nrow = 1, ncol = 2) 
+linear.combo <- mcprofile (object = challenger_glm_binary, CM = K)  
+ci.logit.profile <- confint (object = linear.combo, level = 0.95) 
+exp(ci.logit.profile$estimate)/(1+exp(ci.logit.profile$estimate))
+exp(ci.logit.profile$confint)/(1+exp(ci.logit.profile$confint))
 ```
